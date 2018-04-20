@@ -34,6 +34,7 @@ class MainWindow: NSWindow {
     func toggleVisibility() {
         if (isVisible) {
             close()
+            // figure out how to restore refocus on original window
         } else {
             makeKeyAndOrderFront(self)
             NSApp.activate(ignoringOtherApps: true)

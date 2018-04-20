@@ -33,12 +33,32 @@ class MessageHandler {
     
     static func handle(string: String) {
         let array = string.split(separator:":", maxSplits: 1).map(String.init)
-        let sender = array[0]
+        let recipient = array[0]
         let message = array[1]
         
-        let proc = Process()
-        proc.launchPath = "/usr/bin/osascript"
-        proc.arguments = ["/Users/alvinwan/Downloads/message.scpt", sender, message]
-        proc.launch()  // figure out how to include applescript with app
+        let myAppleScript = """
+        -- grab user's phone number
+        tell application "Contacts"
+            set buddyPhone to value of phone 1 of (person 1 whose name = \"\(recipient)\") whose (label = "mobile" or label = "iPhone" or label = "home" or label = "work")
+        end tell
+        
+        -- send message with phone number, using iMessage
+        tell application "Messages"
+            set targetService to 1st service whose service type = iMessage
+            set targetBuddy to buddy buddyPhone of targetService
+            send \"\(message)\" to targetBuddy
+        end tell
+        
+        tell application "System Events" to keystroke tab using command down
+        """
+        var error: NSDictionary?
+        if let scriptObject = NSAppleScript(source: myAppleScript) {
+            if let output: NSAppleEventDescriptor = scriptObject.executeAndReturnError(
+                &error) {
+                print(output.stringValue ?? "(Message sent successfully to \(recipient))")
+            } else if (error != nil) {
+                print("error: \(String(describing: error))")
+            }
+        }
     }
 }
