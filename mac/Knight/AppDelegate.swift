@@ -12,27 +12,28 @@ import Magnet
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate {
 
-    weak var window: NSWindow!
+    weak var window: MainWindow!
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        // Insert code here to initialize your application
-        
+
+        // Register the command double-tap hotkey
         if let keyCombo = KeyCombo(doubledCocoaModifiers: .command) {
-            let hotKey = HotKey(identifier: "CommandDoubleTap", keyCombo: keyCombo, target: self, action: #selector(AppDelegate.tappedHotKey))
-            hotKey.register() // or HotKeyCenter.shared.register(with: hotKey)
+            let hotKey = HotKey(
+                identifier: "CommandDoubleTap",
+                keyCombo: keyCombo,
+                target: self,
+                action: #selector(AppDelegate.tappedHotKey))
+            hotKey.register()
         }
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
-        // Insert code here to tear down your application
         HotKeyCenter.shared.unregisterAll()
     }
 
     @objc func tappedHotKey() {
-        if (window != nil && window!.isVisible) {
-            window?.close()
-        } else {
-            window?.makeKeyAndOrderFront(self)
+        if (window != nil) {
+            window!.toggleVisibility()
         }
     }
 }

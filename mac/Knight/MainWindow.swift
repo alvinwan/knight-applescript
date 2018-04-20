@@ -16,15 +16,27 @@ class MainWindow: NSWindow {
                        defer flag: Bool) {
         super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
 
-        // Implement this method to handle any initialization after your window controller's window has been loaded from its nib file.
+        // hide title bar
         self.titleVisibility = .hidden
         self.titlebarAppearsTransparent = true
         self.styleMask.insert(.fullSizeContentView)
-        self.isOpaque = false
-        self.backgroundColor = NSColor.white
+        
+        // hide title bar buttons
         self.standardWindowButton(.zoomButton)?.isHidden = true
         self.standardWindowButton(.miniaturizeButton)?.isHidden = true
         self.standardWindowButton(.closeButton)?.isHidden = true
+        
+        // prettify parts left
+        self.isOpaque = false
+        self.backgroundColor = NSColor.white
     }
     
+    func toggleVisibility() {
+        if (isVisible) {
+            close()
+        } else {
+            makeKeyAndOrderFront(self)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
 }

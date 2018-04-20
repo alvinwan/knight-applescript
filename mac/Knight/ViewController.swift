@@ -11,31 +11,34 @@ import CoreFoundation
 
 class ViewController: NSViewController {
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-
-        // Do any additional setup after loading the view.
-    }
-
-    override var representedObject: Any? {
-        didSet {
-        // Update the view, if already loaded.
-        }
-    }
-
     @IBAction func textFieldEnter(sender: NSTextField) {
-        if (sender.stringValue != "" && sender.stringValue.contains(":")) {
-            let array = sender.stringValue.split(separator:":", maxSplits: 1).map(String.init)
-            let sender = array[0]
-            let message = array[1]
-            
-            let proc = Process()
-            proc.launchPath = "/usr/bin/osascript"
-            proc.arguments = ["/Users/alvinwan/Downloads/message.scpt", sender, message]
-            proc.launch()  // figure out how to include applescript with app
-            
-            self.view.window?.close()
+        if (MessageHandler.shouldHandle(string: sender.stringValue)) {
+            MessageHandler.handle(string: sender.stringValue)
         }
+        clearAndClose(sender: sender)
+    }
+    
+    func clearAndClose(sender: NSTextField) {
+        sender.stringValue = ""
+        self.view.window?.close()
     }
 }
 
+
+class MessageHandler {
+    
+    static func shouldHandle(string: String) -> Bool {
+        return (string != "" && string.contains(":"))
+    }
+    
+    static func handle(string: String) {
+        let array = string.split(separator:":", maxSplits: 1).map(String.init)
+        let sender = array[0]
+        let message = array[1]
+        
+        let proc = Process()
+        proc.launchPath = "/usr/bin/osascript"
+        proc.arguments = ["/Users/alvinwan/Downloads/message.scpt", sender, message]
+        proc.launch()  // figure out how to include applescript with app
+    }
+}
