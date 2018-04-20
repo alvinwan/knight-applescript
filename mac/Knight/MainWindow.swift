@@ -32,12 +32,12 @@ class MainWindow: NSWindow {
     }
     
     func toggleVisibility() {
-        if (isVisible) {
-            close()
-            // figure out how to restore refocus on original window
-        } else {
+        if (!isVisible || occlusionState.rawValue != 8194) {
             makeKeyAndOrderFront(self)
             NSApp.activate(ignoringOtherApps: true)
+        } else {
+            close()
+            // figure out how to restore refocus on original window
         }
     }
 }
