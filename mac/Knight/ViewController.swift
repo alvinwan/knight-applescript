@@ -39,7 +39,7 @@ class MessageHandler {
         let myAppleScript = """
         -- grab user's phone number
         tell application "Contacts"
-            set buddyPhone to value of phone 1 of (person 1 whose name = \"\(recipient)\") whose (label = "mobile" or label = "iPhone" or label = "home" or label = "work")
+            set buddyPhone to value of phone 1 of (person 1 whose name starts with \"\(recipient)\") whose (label = "mobile" or label = "iPhone" or label = "home" or label = "work")
         end tell
         
         -- send message with phone number, using iMessage

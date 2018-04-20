@@ -13,18 +13,22 @@ import Magnet
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     weak var window: MainWindow!
+    let statusItem = NSStatusBar.system.statusItem(withLength:NSStatusItem.squareLength)
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
 
         // Register the command double-tap hotkey
-        if let keyCombo = KeyCombo(doubledCocoaModifiers: .command) {
+        if let keyCombo = KeyCombo(doubledCocoaModifiers: .shift) {
             let hotKey = HotKey(
-                identifier: "CommandDoubleTap",
+                identifier: "ShiftDoubleTap",
                 keyCombo: keyCombo,
                 target: self,
                 action: #selector(AppDelegate.tappedHotKey))
             hotKey.register()
         }
+        
+        setupStatusBarIcon()
+        setupStatusBarMenu()
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
@@ -32,9 +36,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func tappedHotKey() {
-        if (window != nil) {
-            window!.toggleVisibility()
+        window?.toggleVisibility()
+    }
+    
+    func setupStatusBarIcon() {
+        if let button = statusItem.button {
+            button.image = NSImage(named:NSImage.Name("StatusBarButtonImage"))
         }
+    }
+    
+    func setupStatusBarMenu() {
+        let menu = NSMenu()
+        
+        menu.addItem(NSMenuItem(
+            title: "Toggle Knight",
+            action: #selector(AppDelegate.tappedHotKey), keyEquivalent: "k"))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(
+            title: "Quit",
+            action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        
+        statusItem.menu = menu
     }
 }
 
