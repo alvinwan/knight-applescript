@@ -17,10 +17,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
 
-        // Register the command double-tap hotkey
-        if let keyCombo = KeyCombo(doubledCocoaModifiers: .shift) {
+        // Register the double control hotkey
+        if let keyCombo = KeyCombo(doubledCocoaModifiers: [.option]) {
             let hotKey = HotKey(
-                identifier: "ShiftDoubleTap",
+                identifier: "doubleOptionTap",
                 keyCombo: keyCombo,
                 target: self,
                 action: #selector(AppDelegate.tappedHotKey))
