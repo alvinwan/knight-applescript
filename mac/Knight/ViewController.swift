@@ -17,6 +17,8 @@ class ViewController: NSViewController {
             MessageHandler.handle(string: string)
         } else if (AppleScriptHandler.shouldHandle(string: string)) {
             AppleScriptHandler.handle(string: string)
+        } else if (AddCalendarEventHandler.shouldHandle(string: string)) {
+            AddCalendarEventHandler.handle(string: string)
         } else if (BrowserHandler.shouldHandle(string: string)) {
             BrowserHandler.handle(string: string)
         }
@@ -35,13 +37,13 @@ class ViewController: NSViewController {
  * --------------------
  * Run the provided appleScript snippet
  *
- *      applescript: [code]
+ *      applescript: <code>
  *      applescript: open location "http://google.com"
  */
 class AppleScriptHandler {
     
     static func shouldHandle(string: String) -> Bool {
-        return string.starts(with: "applescript ")
+        return string.starts(with: "applescript:")
     }
     
     static func handle(string: String) {
@@ -70,7 +72,7 @@ class AppleScriptHandler {
  * ---------------
  * Search term or visit URL.
  *
- *      [search term or URL]
+ *      <search term or URL>
  *      google.com
  *      define bear
  *
@@ -108,8 +110,8 @@ class BrowserHandler {
  * ---------------
  * Messages the specified recipient, delimited by a colon
  *
- *      [name]: [message]
- *      alvin: hello there
+ *      msg <name>: <message>
+ *      msg alvin: hello there
  *
  * Searches for all recipients whose name start with the provided string. This means that the user can
  * message recipients by mentioning just a first name. This additionally performs a lookup for the
@@ -118,12 +120,13 @@ class BrowserHandler {
 class MessageHandler {
     
     static func shouldHandle(string: String) -> Bool {
-        return (string != "" && string.contains(":"))
+        return (string != "" && string.starts(with: "msg "))
     }
     
     static func handle(string: String) {
         let array = string.split(separator:":", maxSplits: 1).map(String.init)
-        let recipient = array[0]
+        let prefixArray = array[0].split(separator: " ", maxSplits: 1).map(String.init)
+        let recipient = prefixArray[1]
         let message = array[1]
         
         let appleScript = """
@@ -144,6 +147,44 @@ class MessageHandler {
         
         -- return to original app
         activate application originalApp
+        """
+        print(AppleScriptHandler.runAppleScript(appleScript: appleScript))
+    }
+}
+
+
+/**
+ * Add Calendar Event
+ * ------------------
+ * adds specified event to calendar
+ *
+ *      +e <event name>: <start date>[ for <duration in hours>]
+ *      +e Meeting (Bit by Bit): 4/20/18 3 p.m.
+ */
+class AddCalendarEventHandler {
+    
+    static var calendarName: String = "Main"
+    
+    static func shouldHandle(string: String) -> Bool {
+        return string.starts(with: "+e")
+    }
+    
+    static func handle(string: String) {
+        let array = string.split(separator:":", maxSplits: 1).map(String.init);
+        let prefixArray = array[0].split(separator:" ", maxSplits: 1).map(String.init)
+        let eventName = prefixArray[1]
+        let startDate = array[1]
+        let durationHours = 1
+        
+        let appleScript = """
+        set theStartDate to date \"\(startDate)\"
+        set theEndDate to theStartDate + (\(durationHours) * hours)
+
+        tell application "Calendar"
+            tell calendar \"\(calendarName)\"
+            make new event with properties {summary: \"\(eventName)\", start date:theStartDate, end date:theEndDate}
+            end tell
+        end tell
         """
         print(AppleScriptHandler.runAppleScript(appleScript: appleScript))
     }
