@@ -13,12 +13,14 @@ class ViewController: NSViewController {
 
     @IBAction func textFieldEnter(sender: NSTextField) {
         let string = sender.stringValue
-        if (MessageHandler.shouldHandle(string: string)) {
-            MessageHandler.handle(string: string)
+        if (SendMessageHandler.shouldHandle(string: string)) {
+            SendMessageHandler.handle(string: string)
         } else if (AppleScriptHandler.shouldHandle(string: string)) {
             AppleScriptHandler.handle(string: string)
         } else if (AddCalendarEventHandler.shouldHandle(string: string)) {
             AddCalendarEventHandler.handle(string: string)
+        } else if (CalendarAvailabilities.shouldHandle(string: string)) {
+            CalendarAvailabilities.handle(string: string)
         } else if (BrowserHandler.shouldHandle(string: string)) {
             BrowserHandler.handle(string: string)
         }
@@ -117,10 +119,10 @@ class BrowserHandler {
  * message recipients by mentioning just a first name. This additionally performs a lookup for the
  * user's phone number, so that iMessage is forcibly used.
  */
-class MessageHandler {
+class SendMessageHandler {
     
     static func shouldHandle(string: String) -> Bool {
-        return (string != "" && string.starts(with: "msg "))
+        return (string != "" && string.starts(with: "message "))
     }
     
     static func handle(string: String) {
@@ -230,5 +232,61 @@ class AddCalendarEventHandler {
         }
         
         return cleanedDateTime
+    }
+}
+
+/**
+ * Check Calendar Availabilities
+ * -----------------------------
+ * Automatically generates human-readable list of availabilties during business hours
+ *
+ *      availabilities
+ *
+ * Once generated, the app should toggle back to the original application and paste at the
+ * cursor position.
+ */
+class CalendarAvailabilities {
+    
+    static var startHour = 9
+    static var endHour = 17
+    static var calendarName: String = "Main"
+    
+    static func shouldHandle(string: String) -> Bool {
+        return string.starts(with:"availabilities")
+    }
+    
+    static func handle(string: String) {
+        let appleScript = """
+        -- the current timestamp
+        set now to (current date)
+        -- midnight this morning
+        set today to now - (time of now)
+        -- midnight tomorrow morning
+        set tomorrow to (today) + (24 * 60 * 60)
+        -- list of output lines
+        set output to {}
+        tell application "Calendar"
+            -- iterate upcoming tasks, excepting repeating tasks not repeating today
+            repeat with e in ((every event in \"\(calendarName)\") whose (start date) is greater than or equal to today and (start date) is less than tomorrow and (start date) is not in (excluded dates))
+                -- properly note tasks lasting all day
+                if (allday event of e) then
+                    set output to output & ("all day")
+                else
+                    set startDate to (start date of e)
+                    set endDAte to (end date of e)
+                    set startTime to (time string of startDate)
+                    set endTime to (time string of endDAte)
+                    if (count of startTime) is less than 11 then
+                        set startTime to " " & startTime
+                    end if
+                    if (count of endTime) is less than 11 then
+                        set endTime to " " & endTime
+                    end if
+                    set output to output & (startTime & " - " & endTime)
+                end if
+            end repeat
+        end tell
+        """
+        print(AppleScriptHandler.runAppleScript(appleScript: appleScript))
     }
 }

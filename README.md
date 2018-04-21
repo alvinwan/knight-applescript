@@ -1,5 +1,15 @@
 # Knight
-collection of AppleScripts for missing, key functionality
+
+To install on Mac OSX (10.13.*), download the Knight application to your Applications folder. Click on the Knight application to run, and double-tap option--anywhere--to activate Knight.
+
+- Message anyone using "message <name>: <message>". The name can be a first or full name.
+- Add calendar event to the "Main" calendar "add event <event name> on <date and time> at <location>"
+- Type in any URL to access it.
+- All other strings are opened in Google search.
+
+## Knight AppleScript Collection
+collection of AppleScripts for missing, key functionality. These applescripts are specifically made for dictation users that would like to avoid hitting keys at all costs.
+
 - edit functionality: delete word, delete line, new line
 - navigation: switch window, go to next slide, go to last slide
 
