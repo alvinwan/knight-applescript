@@ -110,8 +110,8 @@ class BrowserHandler {
  * ---------------
  * Messages the specified recipient, delimited by a colon
  *
- *      msg <name>: <message>
- *      msg alvin: hello there
+ *      message <name>: <message>
+ *      message alvin: hello there
  *
  * Searches for all recipients whose name start with the provided string. This means that the user can
  * message recipients by mentioning just a first name. This additionally performs a lookup for the
@@ -158,34 +158,77 @@ class MessageHandler {
  * ------------------
  * adds specified event to calendar
  *
- *      +e <event name>: <start date>[ for <duration in hours>]
- *      +e Meeting (Bit by Bit): 4/20/18 3 p.m.
+ *      add event <event name> on <start date> at <location>
+ *      add event Meeting (Bit by Bit) on 4/20/18 3:00 PM at MLK
+ *
+ * Caveat: case-sensitive for "on" and "at" keywords. Does not recongize "p.m."
+ * Should recognize days of the week.
  */
 class AddCalendarEventHandler {
     
     static var calendarName: String = "Main"
     
     static func shouldHandle(string: String) -> Bool {
-        return string.starts(with: "+e")
+        return string.lowercased().starts(with: "add event ") && string.range(of: "on") != nil
     }
     
     static func handle(string: String) {
-        let array = string.split(separator:":", maxSplits: 1).map(String.init);
-        let prefixArray = array[0].split(separator:" ", maxSplits: 1).map(String.init)
-        let eventName = prefixArray[1]
-        let startDate = array[1]
+        let array = string.components(separatedBy: "on")
+        
+        let prefixArray = array[0].split(separator:" ", maxSplits: 2).map(String.init)
+        let eventName = prefixArray[2]
+        
+        var startDate: String, location: String;
+        if string.range(of: "at") != nil {
+            let contentArray = array[1].components(separatedBy: "at")
+            startDate = cleanDateTime(string: contentArray[0])
+            location = contentArray[1]
+        } else {
+            startDate = cleanDateTime(string: array[1])
+            location = ""
+        }
         let durationHours = 1
         
         let appleScript = """
+        -- save path to original app
+        set originalApp to path to frontmost application as text
+        
         set theStartDate to date \"\(startDate)\"
         set theEndDate to theStartDate + (\(durationHours) * hours)
 
         tell application "Calendar"
             tell calendar \"\(calendarName)\"
-            make new event with properties {summary: \"\(eventName)\", start date:theStartDate, end date:theEndDate}
+        make new event with properties {summary: \"\(eventName)\", start date:theStartDate, end date:theEndDate, location: \"\(location)\"}
             end tell
         end tell
+        
+        -- return to original app
+        activate application originalApp
         """
         print(AppleScriptHandler.runAppleScript(appleScript: appleScript))
+    }
+    
+    /**
+     * "Smarter" parsing for dates and times
+     */
+    static func cleanDateTime(string: String) -> String {
+        var cleanedDateTime = string
+        let dateToday = Date()
+        let dateFormatter = DateFormatter()
+        var readableDate: String = ""
+        dateFormatter.setLocalizedDateFormatFromTemplate("MM/dd/yy")
+        
+        if string.lowercased().range(of: "today") != nil {
+            readableDate = dateFormatter.string(from: dateToday)
+            cleanedDateTime = cleanedDateTime.replacingOccurrences(of: "today", with: readableDate)
+            cleanedDateTime = cleanedDateTime.replacingOccurrences(of: "Today", with: readableDate) // TODO: ugly
+        } else if string.lowercased().range(of: "tomorrow") != nil {
+            let dateTomorrow = Calendar.current.date(byAdding: .day, value: 1, to: dateToday)
+            readableDate = dateFormatter.string(from: dateTomorrow!)
+            cleanedDateTime = cleanedDateTime.replacingOccurrences(of: "tomorrow", with: readableDate)
+            cleanedDateTime = cleanedDateTime.replacingOccurrences(of: "Tomorrow", with: readableDate) // TODO: ugly
+        }
+        
+        return cleanedDateTime
     }
 }
