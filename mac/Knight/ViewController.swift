@@ -127,6 +127,9 @@ class MessageHandler {
         let message = array[1]
         
         let appleScript = """
+        -- save path to original app
+        set originalApp to path to frontmost application as text
+        
         -- grab user's phone number
         tell application "Contacts"
         set buddyPhone to value of phone 1 of (person 1 whose name starts with \"\(recipient)\") whose (label = "mobile" or label = "iPhone" or label = "home" or label = "work")
@@ -139,7 +142,8 @@ class MessageHandler {
         send \"\(message)\" to targetBuddy
         end tell
         
-        tell application "System Events" to keystroke tab using command down
+        -- return to original app
+        activate application originalApp
         """
         print(AppleScriptHandler.runAppleScript(appleScript: appleScript))
     }
