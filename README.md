@@ -1,6 +1,8 @@
 # Knight
 
-To install on Mac OSX (10.13.*), download the Knight application to your Applications folder. Click on the Knight application to run, and double-tap option--anywhere--to activate Knight.
+To install on Mac OSX (10.13.*), download the Knight application [`Knight_macosx.dmg`](http://github.com/alvinwan/knight/tree/master/Knight_macosx.dmg) to your Applications folder. Click on the Knight application to run.
+
+To use, just **double-tap option**--anywhere--to activate Knight.
 
 - Message anyone using "message <name>: <message>". The name can be a first or full name.
 - Add calendar event to the "Main" calendar "add event <event name> on <date and time> at <location>"
