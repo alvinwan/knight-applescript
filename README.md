@@ -2,9 +2,9 @@
 
 # Knight
 
-To install on Mac OSX (10.13.*), download the Knight application [`Knight_macosx.dmg`](http://github.com/alvinwan/knight/tree/master/Knight_macosx.dmg) to your Applications folder. Click on the Knight application to run.
+Knight is a Spotlight-esque application that makes common computer tasks accessible via natural language. To use, just **double-tap option** to activate Knight.
 
-To use, just **double-tap option**--anywhere--to activate Knight.
+To install on Mac OSX (10.13.*), download the Knight application [`Knight_macosx.dmg`](http://github.com/alvinwan/knight/tree/master/Knight_macosx.dmg) to your Applications folder. Click on the Knight application to run.
 
 - Message anyone using "say ... to ..." e.g., `say hello to alvin`
 - Add event to your "Main" calendar using "add event [name] on [date, time] at [location]" e.g., `add event Meeting at MLK on 4/20 3 p.m.`
