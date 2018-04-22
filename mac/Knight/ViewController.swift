@@ -278,11 +278,12 @@ class SendMessageHandler: KnightHandler {
  * ------------------
  * adds specified event to calendar
  *
- *      add event <event name> on <start date> at <location>
- *      add event Meeting (Bit by Bit) on 4/20/18 3:00 PM at MLK
+ *      add event <event name> [on <start date>] [at <location>] [for <duration in hours>]
+ *      add event Meeting (Bit by Bit) at MLK on 4/20 3 PM
+ *      add event "Walla for Walla" for 0.5 on tomorrow 9:00 a.m.
  *
- * Caveat: case-sensitive for "on" and "at" keywords. Does not recongize "p.m."
- * Should recognize days of the week.
+ * If your event name contains key words such as "on" or "at," enclose your event name in double
+ * quotes.
  */
 class AddCalendarEventHandler: KnightHandler {
     
@@ -321,51 +322,100 @@ class AddCalendarEventHandler: KnightHandler {
     }
     
     static func parseHumanReadableEvent(string: String) -> [String: Any] {
-        let array = string.components(separatedBy: " on ")  // needs more robust checking for words
         
-        let eventName = array[0]
+        var facets: [String: [String]] = [:]
+        let keywords = [
+            "startDate": ["on"],
+            "location": ["at"],
+            "durationHours": ["for"]
+        ]
         
-        var startDate: String, location: String;
-        if string.contains(word: "at") {
-            let contentArray = array[1].components(separatedBy: " at ")
-            startDate = cleanDateTime(string: contentArray[0])
-            location = contentArray[1]
-        } else {
-            startDate = cleanDateTime(string: array[1])
-            location = ""
+        var facetKey = "eventName"
+        var quoteOn = false
+        var word: String
+        wordLoop: for word_ in string.components(separatedBy: " ") {
+            word = word_
+            facets[facetKey] = (facets[facetKey] ?? [])
+            
+            // handle quoted strings - does not handle escaped quotes
+            if word.hasPrefix("\"") || word.hasSuffix("\"") {
+                quoteOn = !quoteOn
+                word = word.hasPrefix("\"") ? String(word[1...]) : String(word[..<1])
+            }
+            
+            if quoteOn {
+                facets[facetKey]!.append(word)
+                continue
+            }
+            
+            // identify event property
+            for (key, triggers) in keywords {
+                for trigger in triggers {
+                    if word == trigger {
+                        facetKey = key
+                        continue wordLoop
+                    }
+                }
+            }
+            
+            facets[facetKey]!.append(word)
         }
-        let durationHours = 1
+        
+        let eventName = facets["eventName"]?.joined(separator: " ")
+        let startDate = cleanDateTime(words:facets["startDate"]!)
+        let location = facets["location"]?.joined(separator: " ")
+        
+        var durationHours: Float = 1
+        print(facets)
+        if (facets["durationHours"] != nil) {
+            durationHours = Float(facets["durationHours"]![0])!
+        }
         
         return [
-            "eventName": eventName,
+            "eventName": eventName ?? "",
             "startDate": startDate,
-            "location": location,
+            "location": location ?? "",
             "durationHours": durationHours
         ]
     }
     
     /**
-     * "Smarter" parsing for dates and times
+     * Smarter parsing
+     * ---------------
+     * for dates and times. Adds support for the following conveniences:
+     *
+     * - 3 PM (single-digit hour)
+     * - "today", "tomorrow"
+     * - <month>/<date> (implicitly adding the year)
+     *
+     * Note that AppleScript already supports other human-readable dates and time formats (e.g., p.m.)
+     * TODO: support day-of-week + "next" or "last"
      */
-    static func cleanDateTime(string: String) -> String {
-        var cleanedDateTime = string
+    static func cleanDateTime(words: [String]) -> String {
         let dateToday = Date()
         let dateFormatter = DateFormatter()
-        var readableDate: String = ""
         dateFormatter.setLocalizedDateFormatFromTemplate("MM/dd/yy")
         
-        if string.lowercased().contains(string: "today") {
-            readableDate = dateFormatter.string(from: dateToday)
-            cleanedDateTime = cleanedDateTime.replacingOccurrences(of: "today", with: readableDate)
-            cleanedDateTime = cleanedDateTime.replacingOccurrences(of: "Today", with: readableDate) // TODO: ugly
-        } else if string.lowercased().contains(string: "tomorrow") {
-            let dateTomorrow = Calendar.current.date(byAdding: .day, value: 1, to: dateToday)
-            readableDate = dateFormatter.string(from: dateTomorrow!)
-            cleanedDateTime = cleanedDateTime.replacingOccurrences(of: "tomorrow", with: readableDate)
-            cleanedDateTime = cleanedDateTime.replacingOccurrences(of: "Tomorrow", with: readableDate) // TODO: ugly
+        var cleanedWords: [String] = []
+        
+        for word in words {
+            if word.lowercased().trim() == "today" {
+                cleanedWords.append(dateFormatter.string(from: dateToday))
+            } else if word.lowercased().trim() == "tomorrow" {
+                let dateTomorrow = Calendar.current.date(byAdding: .day, value: 1, to: dateToday)
+                cleanedWords.append(dateFormatter.string(from: dateTomorrow!))
+            } else if let num = Int(word) {
+                cleanedWords.append("\(num):00")
+            } else if word.contains("/") && word.count(string: "/") == 1 {
+                dateFormatter.setLocalizedDateFormatFromTemplate("yy")
+                let year = dateFormatter.string(from: dateToday)
+                cleanedWords.append("\(word)/\(year)")
+            } else {
+                cleanedWords.append(word)
+            }
         }
         
-        return cleanedDateTime
+        return cleanedWords.joined(separator: " ")
     }
     
     class AddEventInvocation: KnightHandlerInvocation {
@@ -376,7 +426,7 @@ class AddCalendarEventHandler: KnightHandler {
         
         func parse(string: String) -> [String: Any] {
             let array = string.split(separator:" ", maxSplits: 2).map(String.init)
-            return AddCalendarEventHandler.parseHumanReadableEvent(string: array[1])
+            return AddCalendarEventHandler.parseHumanReadableEvent(string: array[2])
         }
     }
 }
@@ -449,5 +499,27 @@ extension String {
     
     func trim() -> String {
         return self.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    func count(string: String) -> Int {
+        return self.components(separatedBy: string).count - 1
+    }
+    
+    subscript(value: PartialRangeUpTo<Int>) -> Substring {
+        get {
+            return self[..<index(startIndex, offsetBy: value.upperBound)]
+        }
+    }
+    
+    subscript(value: PartialRangeThrough<Int>) -> Substring {
+        get {
+            return self[...index(startIndex, offsetBy: value.upperBound)]
+        }
+    }
+    
+    subscript(value: PartialRangeFrom<Int>) -> Substring {
+        get {
+            return self[index(startIndex, offsetBy: value.lowerBound)...]
+        }
     }
 }
