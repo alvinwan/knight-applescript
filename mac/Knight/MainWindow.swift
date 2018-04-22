@@ -9,7 +9,9 @@
 import Cocoa
 
 class MainWindow: NSWindow {
-
+    
+    var textField: NSTextField?
+    
     override init(contentRect: NSRect,
                        styleMask style: NSWindow.StyleMask,
                        backing backingStoreType: NSWindow.BackingStoreType,
@@ -36,8 +38,13 @@ class MainWindow: NSWindow {
             makeKeyAndOrderFront(self)
             NSApp.activate(ignoringOtherApps: true)
         } else {
-            close()
-            // figure out how to restore refocus on original window
+            clearAndClose()
         }
+    }
+    
+    func clearAndClose() {
+        close()
+        // figure out how to restore refocus on original window
+        textField?.stringValue = ""
     }
 }

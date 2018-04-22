@@ -709,13 +709,13 @@
                         <rect key="frame" x="0.0" y="0.0" width="472" height="60"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
-                            <textField verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Jdk-CH-6uS">
+                            <textField focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Jdk-CH-6uS">
                                 <rect key="frame" x="10" y="10" width="462" height="40"/>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="462" id="6oW-0d-jT5"/>
                                     <constraint firstAttribute="height" constant="40" id="th8-m5-nSD"/>
                                 </constraints>
-                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" alignment="left" placeholderString="summon knight" drawsBackground="YES" id="0hq-ar-elM">
+                                <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" focusRingType="none" alignment="left" placeholderString="summon knight" drawsBackground="YES" id="0hq-ar-elM">
                                     <font key="font" metaFont="system" size="30"/>
                                     <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
@@ -732,6 +732,9 @@
                             <constraint firstItem="Jdk-CH-6uS" firstAttribute="leading" secondItem="m2S-Jp-Qdl" secondAttribute="leading" constant="10" id="y2q-YN-vyN"/>
                         </constraints>
                     </view>
+                    <connections>
+                        <outlet property="mainTextField" destination="Jdk-CH-6uS" id="u83-BC-7Fx"/>
+                    </connections>
                 </viewController>
                 <customObject id="rPt-NT-nkU" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
             </objects>

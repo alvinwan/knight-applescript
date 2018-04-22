@@ -13,18 +13,22 @@ class ViewController: NSViewController {
 
     @IBAction func textFieldEnter(sender: NSTextField) {
         let string = sender.stringValue
-        if (SendMessageHandler.shouldHandle(string: string)) {
-            SendMessageHandler.handle(string: string)
-        } else if (AppleScriptHandler.shouldHandle(string: string)) {
-            AppleScriptHandler.handle(string: string)
-        } else if (AddCalendarEventHandler.shouldHandle(string: string)) {
-            AddCalendarEventHandler.handle(string: string)
-        } else if (CalendarAvailabilities.shouldHandle(string: string)) {
-            CalendarAvailabilities.handle(string: string)
-        } else if (BrowserHandler.shouldHandle(string: string)) {
-            BrowserHandler.handle(string: string)
+        
+        let handlers: [KnightHandler] = [
+            SendMessageHandler(),
+            AppleScriptHandler(),
+            AddCalendarEventHandler(),
+            CalendarAvailabilities(),
+            BrowserHandler()
+        ]
+        
+        for handler in handlers {
+            if handler.shouldHandle(string: string) {
+                handler.handle(string: string)
+                clearAndClose(sender: sender)
+                break
+            }
         }
-        clearAndClose(sender: sender)
     }
     
     func clearAndClose(sender: NSTextField) {
@@ -34,6 +38,57 @@ class ViewController: NSViewController {
 }
 
 
+protocol KnightHandlerInvocation {
+    
+    func recognize(string: String) -> Bool
+    func parse(string: String) -> [String: Any]
+}
+
+class DefaultHandlerInvocation: KnightHandlerInvocation {
+    
+    var prefix: String?
+    
+    init(prefix: String) {
+        self.prefix = prefix
+    }
+    
+    func recognize(string: String) -> Bool {
+        return string.starts(with: "\(string):")
+    }
+    
+    func parse(string: String) -> [String: Any] {
+        return ["content": string.split(separator: ":", maxSplits: 1).map(String.init)[1]]
+    }
+}
+
+class KnightHandler {
+    
+    var invocations: [KnightHandlerInvocation] = []
+    var invocation: KnightHandlerInvocation?
+    
+    func shouldHandle(string: String) -> Bool {
+        for invocation in invocations {
+            if invocation.recognize(string: string) {
+                self.invocation = invocation
+                return true
+            }
+        }
+        return false
+    }
+    
+    func handle(string: String) {
+        if (invocation != nil) {
+            safeHandle(string: string)
+        } else {
+            print("Error: No appropriate handle found for handler.")
+        }
+    }
+    
+    func safeHandle(string: String) {
+        fatalError("Handlers must implement handle method.")
+    }
+}
+
 /**
  * AppleScript Handler
  * --------------------
@@ -42,16 +97,16 @@ class ViewController: NSViewController {
  *      applescript: <code>
  *      applescript: open location "http://google.com"
  */
-class AppleScriptHandler {
+class AppleScriptHandler: KnightHandler {
     
-    static func shouldHandle(string: String) -> Bool {
-        return string.starts(with: "applescript:")
+    override init() {
+        super.init()
+        invocations.append(DefaultHandlerInvocation(prefix: "applescript"))
     }
     
-    static func handle(string: String) {
-        let array = string.split(separator:":", maxSplits: 1).map(String.init);
-        let appleScript = array[1]
-        print(runAppleScript(appleScript: appleScript))
+    override func safeHandle(string: String) {
+        let information = invocation!.parse(string: string)
+        print(AppleScriptHandler.runAppleScript(appleScript: information["content"] as! String))
     }
     
     static func runAppleScript(appleScript: String) -> String {
@@ -81,13 +136,14 @@ class AppleScriptHandler {
  * Catch-all last resort for Knight summons. If the string is URL-esque, attempt to open the URL.
  * Otherwise, perform a Google search.
  */
-class BrowserHandler {
+class BrowserHandler: KnightHandler {
     
-    static func shouldHandle(string: String) -> Bool {
-        return true
+    override init() {
+        super.init()
+        invocations.append(DummyHandlerInvocation())
     }
     
-    static func handle(string: String) {
+    override func safeHandle(string: String) {
         var url: String = string
         if BrowserHandler.verifyUrl(urlString: url) {
             if !url.starts(with: "http") {
@@ -104,6 +160,17 @@ class BrowserHandler {
         let urlTest = NSPredicate(format:"SELF MATCHES %@", urlRegEx)
         return urlTest.evaluate(with: urlString)
     }
+    
+    class DummyHandlerInvocation: KnightHandlerInvocation {
+        
+        func recognize(string: String) -> Bool {
+            return true
+        }
+        
+        func parse(string: String) -> [String : Any] {
+            return [:]
+        }
+    }
 }
 
 
@@ -112,24 +179,33 @@ class BrowserHandler {
  * ---------------
  * Messages the specified recipient, delimited by a colon
  *
+ *      say <message> to <name>
+ *      say hello there to alvin
+ *
  *      message <name>: <message>
  *      message alvin: hello there
+ *
+ *      <name>::<message>
+ *      alvin::hello there
+ *
  *
  * Searches for all recipients whose name start with the provided string. This means that the user can
  * message recipients by mentioning just a first name. This additionally performs a lookup for the
  * user's phone number, so that iMessage is forcibly used.
  */
-class SendMessageHandler {
+class SendMessageHandler: KnightHandler {
     
-    static func shouldHandle(string: String) -> Bool {
-        return (string != "" && string.starts(with: "message "))
+    override init() {
+        super.init()
+        invocations.append(MessageInvocation())
+        invocations.append(DoubleColonInvocation())
+        invocations.append(SayToInvocation())
     }
     
-    static func handle(string: String) {
-        let array = string.split(separator:":", maxSplits: 1).map(String.init)
-        let prefixArray = array[0].split(separator: " ", maxSplits: 1).map(String.init)
-        let recipient = prefixArray[1]
-        let message = array[1]
+    override func handle(string: String) {
+        let information = invocation!.parse(string: string)
+        let recipient = (information["recipient"]! as! String).trim()
+        let message = information["message"]!
         
         let appleScript = """
         -- save path to original app
@@ -152,6 +228,48 @@ class SendMessageHandler {
         """
         print(AppleScriptHandler.runAppleScript(appleScript: appleScript))
     }
+    
+    class MessageInvocation: KnightHandlerInvocation {
+        
+        func recognize(string: String) -> Bool {
+            return string.starts(with: "message")
+        }
+        
+        func parse(string: String) -> [String: Any] {
+            let array = string.split(separator:":", maxSplits: 1).map(String.init)
+            let prefixArray = array[0].split(separator: " ", maxSplits: 1).map(String.init)
+            let recipient = prefixArray[1]
+            let message = array[1]
+            return ["recipient": recipient, "message": message]
+        }
+    }
+    
+    class DoubleColonInvocation: KnightHandlerInvocation {
+        
+        func recognize(string: String) -> Bool {
+            return string.contains("::")
+        }
+        
+        func parse(string: String) -> [String: Any] {
+            let array = string.components(separatedBy: "::")
+            return ["recipient": array[0], "message": array[1]]
+        }
+    }
+    
+    class SayToInvocation: KnightHandlerInvocation {
+        
+        func recognize(string: String) -> Bool {
+            return string.starts(with: "say ") && string.contains(word: "to")
+        }
+        
+        func parse(string: String) -> [String: Any] {
+            var array = string.components(separatedBy: "say ")
+            let range = array[1].range(of: " to ", options: .backwards)!
+            let recipient = String(array[1][range.upperBound...])
+            let message = String(array[1][..<range.lowerBound])
+            return ["recipient": recipient, "message": message]
+        }
+    }
 }
 
 
@@ -166,30 +284,22 @@ class SendMessageHandler {
  * Caveat: case-sensitive for "on" and "at" keywords. Does not recongize "p.m."
  * Should recognize days of the week.
  */
-class AddCalendarEventHandler {
+class AddCalendarEventHandler: KnightHandler {
     
-    static var calendarName: String = "Main"
+    var calendarName: String = "Main"
     
-    static func shouldHandle(string: String) -> Bool {
-        return string.lowercased().starts(with: "add event ") && string.range(of: "on") != nil
+    override init() {
+        super.init()
+        invocations.append(AddEventInvocation())
     }
     
-    static func handle(string: String) {
-        let array = string.components(separatedBy: " on ")  // needs more robust checking for words
+    override func safeHandle(string: String) {
+        let information = invocation!.parse(string: string)
         
-        let prefixArray = array[0].split(separator:" ", maxSplits: 2).map(String.init)
-        let eventName = prefixArray[2]
-        
-        var startDate: String, location: String;
-        if string.range(of: " at ") != nil {
-            let contentArray = array[1].components(separatedBy: " at ")
-            startDate = cleanDateTime(string: contentArray[0])
-            location = contentArray[1]
-        } else {
-            startDate = cleanDateTime(string: array[1])
-            location = ""
-        }
-        let durationHours = 1
+        let startDate = information["startDate"]!
+        let durationHours = information["durationHours"]!
+        let location = information["location"]!
+        let eventName = information["eventName"]!
         
         let appleScript = """
         -- save path to original app
@@ -210,6 +320,30 @@ class AddCalendarEventHandler {
         print(AppleScriptHandler.runAppleScript(appleScript: appleScript))
     }
     
+    static func parseHumanReadableEvent(string: String) -> [String: Any] {
+        let array = string.components(separatedBy: " on ")  // needs more robust checking for words
+        
+        let eventName = array[0]
+        
+        var startDate: String, location: String;
+        if string.contains(word: "at") {
+            let contentArray = array[1].components(separatedBy: " at ")
+            startDate = cleanDateTime(string: contentArray[0])
+            location = contentArray[1]
+        } else {
+            startDate = cleanDateTime(string: array[1])
+            location = ""
+        }
+        let durationHours = 1
+        
+        return [
+            "eventName": eventName,
+            "startDate": startDate,
+            "location": location,
+            "durationHours": durationHours
+        ]
+    }
+    
     /**
      * "Smarter" parsing for dates and times
      */
@@ -220,11 +354,11 @@ class AddCalendarEventHandler {
         var readableDate: String = ""
         dateFormatter.setLocalizedDateFormatFromTemplate("MM/dd/yy")
         
-        if string.lowercased().range(of: "today") != nil {
+        if string.lowercased().contains(string: "today") {
             readableDate = dateFormatter.string(from: dateToday)
             cleanedDateTime = cleanedDateTime.replacingOccurrences(of: "today", with: readableDate)
             cleanedDateTime = cleanedDateTime.replacingOccurrences(of: "Today", with: readableDate) // TODO: ugly
-        } else if string.lowercased().range(of: "tomorrow") != nil {
+        } else if string.lowercased().contains(string: "tomorrow") {
             let dateTomorrow = Calendar.current.date(byAdding: .day, value: 1, to: dateToday)
             readableDate = dateFormatter.string(from: dateTomorrow!)
             cleanedDateTime = cleanedDateTime.replacingOccurrences(of: "tomorrow", with: readableDate)
@@ -232,6 +366,18 @@ class AddCalendarEventHandler {
         }
         
         return cleanedDateTime
+    }
+    
+    class AddEventInvocation: KnightHandlerInvocation {
+        
+        func recognize(string: String) -> Bool {
+            return string.lowercased().starts(with: "add event ") && string.contains(word: "on")
+        }
+        
+        func parse(string: String) -> [String: Any] {
+            let array = string.split(separator:" ", maxSplits: 2).map(String.init)
+            return AddCalendarEventHandler.parseHumanReadableEvent(string: array[1])
+        }
     }
 }
 
@@ -245,17 +391,18 @@ class AddCalendarEventHandler {
  * Once generated, the app should toggle back to the original application and paste at the
  * cursor position.
  */
-class CalendarAvailabilities {
+class CalendarAvailabilities: KnightHandler {
     
-    static var startHour = 9
-    static var endHour = 17
-    static var calendarName: String = "Main"
+    var startHour = 9
+    var endHour = 17
+    var calendarName: String = "Main"
     
-    static func shouldHandle(string: String) -> Bool {
-        return string.starts(with:"availabilities")
+    override init() {
+        super.init()
+        invocations.append(DefaultHandlerInvocation(prefix: "availabilities"))
     }
     
-    static func handle(string: String) {
+    override func safeHandle(string: String) {
         let appleScript = """
         -- the current timestamp
         set now to (current date)
@@ -288,5 +435,19 @@ class CalendarAvailabilities {
         end tell
         """
         print(AppleScriptHandler.runAppleScript(appleScript: appleScript))
+    }
+}
+
+extension String {
+    func contains(word: String) -> Bool {
+        return self.range(of: "\\b\(word)\\b", options: .regularExpression) != nil
+    }
+    
+    func contains(string: String) -> Bool {
+        return self.range(of: string) != nil
+    }
+    
+    func trim() -> String {
+        return self.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
