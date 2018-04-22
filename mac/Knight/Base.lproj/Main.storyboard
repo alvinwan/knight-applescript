@@ -2,6 +2,7 @@
 <document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="13771" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="B8D-0N-5wS">
     <dependencies>
         <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="13771"/>
+        <capability name="box content view" minToolsVersion="7.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
@@ -706,17 +707,13 @@
             <objects>
                 <viewController id="XfG-lQ-9wD" customClass="ViewController" customModule="Knight" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" wantsLayer="YES" misplaced="YES" id="m2S-Jp-Qdl">
-                        <rect key="frame" x="0.0" y="0.0" width="675" height="60"/>
+                        <rect key="frame" x="0.0" y="0.0" width="675" height="94"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
-                            <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4iP-Ci-Sjy">
-                                <rect key="frame" x="10" y="6" width="48" height="48"/>
-                                <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="knight" id="vyI-7H-VJ6"/>
-                            </imageView>
                             <textField focusRingType="none" verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Jdk-CH-6uS">
-                                <rect key="frame" x="66" y="14" width="600" height="40"/>
+                                <rect key="frame" x="66" y="48" width="600" height="40"/>
                                 <constraints>
-                                    <constraint firstAttribute="width" constant="600" id="6oW-0d-jT5"/>
+                                    <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="600" id="6oW-0d-jT5"/>
                                     <constraint firstAttribute="height" constant="40" id="th8-m5-nSD"/>
                                 </constraints>
                                 <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" selectable="YES" editable="YES" sendsActionOnEndEditing="YES" state="on" focusRingType="none" alignment="left" placeholderString="Summon Knight" drawsBackground="YES" id="0hq-ar-elM">
@@ -728,24 +725,59 @@
                                     <action selector="textFieldEnterWithSender:" target="XfG-lQ-9wD" id="e2d-rZ-l1W"/>
                                 </connections>
                             </textField>
+                            <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="4iP-Ci-Sjy">
+                                <rect key="frame" x="10" y="40" width="48" height="48"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="40" id="2nF-Ao-oD7"/>
+                                    <constraint firstAttribute="width" constant="48" id="Ajo-y7-nLZ"/>
+                                </constraints>
+                                <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="knight" id="vyI-7H-VJ6"/>
+                            </imageView>
+                            <box misplaced="YES" boxType="custom" borderWidth="0.0" title="Box" translatesAutoresizingMaskIntoConstraints="NO" id="rbP-Jd-7R4">
+                                <rect key="frame" x="0.0" y="0.0" width="675" height="32"/>
+                                <view key="contentView" id="LPu-mn-UnS">
+                                    <rect key="frame" x="0.0" y="0.0" width="675" height="32"/>
+                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                    <subviews>
+                                        <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="S7f-8r-hL0">
+                                            <rect key="frame" x="15" y="4" width="653" height="17"/>
+                                            <textFieldCell key="cell" sendsActionOnEndEditing="YES" title="Multiline Label" drawsBackground="YES" id="mQ9-tR-6Yf">
+                                                <font key="font" size="13" name="HelveticaNeue"/>
+                                                <color key="textColor" red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                                <color key="backgroundColor" red="1" green="1" blue="1" alpha="0.0" colorSpace="custom" customColorSpace="sRGB"/>
+                                            </textFieldCell>
+                                        </textField>
+                                    </subviews>
+                                    <constraints>
+                                        <constraint firstItem="S7f-8r-hL0" firstAttribute="top" secondItem="LPu-mn-UnS" secondAttribute="top" constant="10" id="c74-Zw-Pr7"/>
+                                        <constraint firstAttribute="trailing" secondItem="S7f-8r-hL0" secondAttribute="trailing" constant="15" id="uvZ-Tc-63a"/>
+                                        <constraint firstItem="S7f-8r-hL0" firstAttribute="leading" secondItem="LPu-mn-UnS" secondAttribute="leading" constant="15" id="zym-PP-Dq2"/>
+                                    </constraints>
+                                </view>
+                                <color key="fillColor" red="0.92779582739999999" green="0.35224646710000002" blue="0.17078533839999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                            </box>
                         </subviews>
                         <constraints>
                             <constraint firstItem="4iP-Ci-Sjy" firstAttribute="leading" secondItem="m2S-Jp-Qdl" secondAttribute="leading" constant="10" id="7ly-hF-Ria"/>
+                            <constraint firstItem="rbP-Jd-7R4" firstAttribute="leading" secondItem="m2S-Jp-Qdl" secondAttribute="leading" id="8j6-2f-w43"/>
+                            <constraint firstItem="rbP-Jd-7R4" firstAttribute="top" secondItem="Jdk-CH-6uS" secondAttribute="bottom" constant="15" id="Eh1-hl-dQI"/>
                             <constraint firstItem="Jdk-CH-6uS" firstAttribute="top" secondItem="m2S-Jp-Qdl" secondAttribute="top" constant="15" id="Jqh-Ry-XKl"/>
-                            <constraint firstAttribute="bottom" secondItem="Jdk-CH-6uS" secondAttribute="bottom" constant="15" id="OYK-BH-zll"/>
+                            <constraint firstAttribute="bottom" secondItem="rbP-Jd-7R4" secondAttribute="bottom" id="Qj5-F7-HeY"/>
                             <constraint firstAttribute="trailing" secondItem="Jdk-CH-6uS" secondAttribute="trailing" constant="15" id="aWg-9N-L9I"/>
-                            <constraint firstAttribute="bottom" secondItem="4iP-Ci-Sjy" secondAttribute="bottom" constant="20" id="c9c-65-2Ku"/>
                             <constraint firstItem="4iP-Ci-Sjy" firstAttribute="top" secondItem="m2S-Jp-Qdl" secondAttribute="top" constant="15" id="cfc-Oc-NkV"/>
+                            <constraint firstAttribute="trailing" secondItem="rbP-Jd-7R4" secondAttribute="trailing" id="nN2-kF-RNB"/>
                             <constraint firstItem="Jdk-CH-6uS" firstAttribute="leading" secondItem="4iP-Ci-Sjy" secondAttribute="trailing" constant="8" id="yfZ-G4-isC"/>
                         </constraints>
                     </view>
                     <connections>
                         <outlet property="mainTextField" destination="Jdk-CH-6uS" id="u83-BC-7Fx"/>
+                        <outlet property="statusBox" destination="rbP-Jd-7R4" id="xQw-00-Dyj"/>
+                        <outlet property="statusText" destination="S7f-8r-hL0" id="XZT-cJ-XKw"/>
                     </connections>
                 </viewController>
                 <customObject id="rPt-NT-nkU" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="76" y="648"/>
+            <point key="canvasLocation" x="75.5" y="665"/>
         </scene>
     </scenes>
     <resources>

@@ -11,8 +11,19 @@ import CoreFoundation
 
 class ViewController: NSViewController {
 
+    @IBOutlet weak var statusBox: NSBox!
+    @IBOutlet weak var statusText: NSTextField!
+    
+    let viewWidth: CGFloat = 800
+    let viewHeight: CGFloat = 70
+    
+    override func viewDidLoad() {
+        self.view.setFrameSize(NSMakeSize(viewWidth, viewHeight))
+    }
+    
     @IBAction func textFieldEnter(sender: NSTextField) {
         let string = sender.stringValue
+        hideWindowStatus()
         
         let handlers: [KnightHandler] = [
             SendMessageHandler(),
@@ -22,13 +33,35 @@ class ViewController: NSViewController {
             BrowserHandler()
         ]
         
+        var isError: Bool, error: String
         for handler in handlers {
             if handler.shouldHandle(string: string) {
-                handler.handle(string: string)
-                clearAndClose(sender: sender)
+                (isError, error) = handler.handle(string: string)
+                if isError {
+                    showWindowError(string: error)
+                } else {
+                    clearAndClose(sender: sender)
+                }
                 break
             }
         }
+    }
+    
+    func hideWindowStatus() {
+        var frame = self.view.window?.frame
+        frame?.size = NSSize(width: viewWidth, height: viewHeight)
+        self.view.window?.setFrame(frame!, display: true, animate: true)
+    }
+    
+    func showWindowStatus(numLines: CGFloat) {
+        var frame = self.view.window?.frame
+        frame?.size = NSSize(width: viewWidth, height: viewHeight + 10 + numLines * 20)
+        self.view.window?.setFrame(frame!, display: true, animate: true)
+    }
+    
+    func showWindowError(string: String) {
+        statusText.stringValue = string
+        showWindowStatus(numLines: string.count(string: "\n") + 1)
     }
     
     func clearAndClose(sender: NSTextField) {
@@ -53,7 +86,7 @@ class DefaultHandlerInvocation: KnightHandlerInvocation {
     }
     
     func recognize(string: String) -> Bool {
-        return string.starts(with: "\(string):")
+        return string.starts(with: "\(self.prefix):")
     }
     
     func parse(string: String) -> [String: Any] {
@@ -76,15 +109,15 @@ class KnightHandler {
         return false
     }
     
-    func handle(string: String) {
+    func handle(string: String) -> (Bool, String) {
         if (invocation != nil) {
-            safeHandle(string: string)
+            return safeHandle(string: string)
         } else {
-            print("Error: No appropriate handle found for handler.")
+            return (true, "Error: No appropriate handle found for handler.")
         }
     }
     
-    func safeHandle(string: String) {
+    func safeHandle(string: String) -> (Bool, String) {
         fatalError("Handlers must implement handle method.")
     }
 }
@@ -104,22 +137,22 @@ class AppleScriptHandler: KnightHandler {
         invocations.append(DefaultHandlerInvocation(prefix: "applescript"))
     }
     
-    override func safeHandle(string: String) {
+    override func safeHandle(string: String) -> (Bool, String) {
         let information = invocation!.parse(string: string)
-        print(AppleScriptHandler.runAppleScript(appleScript: information["content"] as! String))
+        return AppleScriptHandler.runAppleScript(appleScript: information["content"] as! String)
     }
     
-    static func runAppleScript(appleScript: String) -> String {
+    static func runAppleScript(appleScript: String) -> (Bool, String) {
         var error: NSDictionary?
         if let scriptObject = NSAppleScript(source: appleScript) {
             if let output: NSAppleEventDescriptor = scriptObject.executeAndReturnError(
                 &error) {
-                return output.stringValue ?? ""
+                return (false, output.stringValue ?? "")
             } else if (error != nil) {
-                return "error: \(String(describing: error))"
+                return (true, "error: \(String(describing: error))")
             }
         }
-        return "error: could not access applescript"
+        return (true, "error: could not access applescript")
     }
 }
 
@@ -143,7 +176,7 @@ class BrowserHandler: KnightHandler {
         invocations.append(DummyHandlerInvocation())
     }
     
-    override func safeHandle(string: String) {
+    override func safeHandle(string: String) -> (Bool, String) {
         var url: String = string
         if BrowserHandler.verifyUrl(urlString: url) {
             if !url.starts(with: "http") {
@@ -152,7 +185,7 @@ class BrowserHandler: KnightHandler {
         } else {
             url = "https://www.google.com/search?q=" + url
         }
-        print(AppleScriptHandler.runAppleScript(appleScript: "open location \"\(url)\""))
+        return AppleScriptHandler.runAppleScript(appleScript: "open location \"\(url)\"")
     }
     
     static func verifyUrl(urlString: String?) -> Bool {
@@ -202,7 +235,7 @@ class SendMessageHandler: KnightHandler {
         invocations.append(SayToInvocation())
     }
     
-    override func handle(string: String) {
+    override func handle(string: String) -> (Bool, String) {
         let information = invocation!.parse(string: string)
         let recipient = (information["recipient"]! as! String).trim()
         let message = information["message"]!
@@ -226,7 +259,7 @@ class SendMessageHandler: KnightHandler {
         -- return to original app
         activate application originalApp
         """
-        print(AppleScriptHandler.runAppleScript(appleScript: appleScript))
+        return AppleScriptHandler.runAppleScript(appleScript: appleScript)
     }
     
     class MessageInvocation: KnightHandlerInvocation {
@@ -294,7 +327,7 @@ class AddCalendarEventHandler: KnightHandler {
         invocations.append(AddEventInvocation())
     }
     
-    override func safeHandle(string: String) {
+    override func safeHandle(string: String) -> (Bool, String)  {
         let information = invocation!.parse(string: string)
         
         let startDate = information["startDate"]!
@@ -318,7 +351,7 @@ class AddCalendarEventHandler: KnightHandler {
         -- return to original app
         activate application originalApp
         """
-        print(AppleScriptHandler.runAppleScript(appleScript: appleScript))
+        return AppleScriptHandler.runAppleScript(appleScript: appleScript)
     }
     
     static func parseHumanReadableEvent(string: String) -> [String: Any] {
@@ -452,7 +485,7 @@ class CalendarAvailabilities: KnightHandler {
         invocations.append(DefaultHandlerInvocation(prefix: "availabilities"))
     }
     
-    override func safeHandle(string: String) {
+    override func safeHandle(string: String) -> (Bool, String) {
         let appleScript = """
         -- the current timestamp
         set now to (current date)
@@ -484,7 +517,7 @@ class CalendarAvailabilities: KnightHandler {
             end repeat
         end tell
         """
-        print(AppleScriptHandler.runAppleScript(appleScript: appleScript))
+        return AppleScriptHandler.runAppleScript(appleScript: appleScript)
     }
 }
 
@@ -501,8 +534,8 @@ extension String {
         return self.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    func count(string: String) -> Int {
-        return self.components(separatedBy: string).count - 1
+    func count(string: String) -> CGFloat {
+        return CGFloat(self.components(separatedBy: string).count) - 1
     }
     
     subscript(value: PartialRangeUpTo<Int>) -> Substring {
