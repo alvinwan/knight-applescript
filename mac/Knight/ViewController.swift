@@ -175,14 +175,14 @@ class AddCalendarEventHandler {
     }
     
     static func handle(string: String) {
-        let array = string.components(separatedBy: "on")
+        let array = string.components(separatedBy: " on ")  // needs more robust checking for words
         
         let prefixArray = array[0].split(separator:" ", maxSplits: 2).map(String.init)
         let eventName = prefixArray[2]
         
         var startDate: String, location: String;
-        if string.range(of: "at") != nil {
-            let contentArray = array[1].components(separatedBy: "at")
+        if string.range(of: " at ") != nil {
+            let contentArray = array[1].components(separatedBy: " at ")
             startDate = cleanDateTime(string: contentArray[0])
             location = contentArray[1]
         } else {
