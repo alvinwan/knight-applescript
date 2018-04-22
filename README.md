@@ -1,12 +1,14 @@
+<img width="50" alt="knight 2x" src="https://user-images.githubusercontent.com/2068077/39094319-73515772-45e2-11e8-99b4-6243bdcc11b2.png">
+
 # Knight
 
 To install on Mac OSX (10.13.*), download the Knight application [`Knight_macosx.dmg`](http://github.com/alvinwan/knight/tree/master/Knight_macosx.dmg) to your Applications folder. Click on the Knight application to run.
 
 To use, just **double-tap option**--anywhere--to activate Knight.
 
-- Message anyone using "message <name>: <message>". The name can be a first or full name.
-- Add calendar event to the "Main" calendar "add event <event name> on <date and time> at <location>"
-- Type in any URL to access it.
+- Message anyone using "say ... to ..." e.g., `say hello to alvin`
+- Add event to your "Main" calendar using "add event [name] on [date, time] at [location]" e.g., `add event Meeting at MLK on 4/20 3 p.m.`
+- Type in any URL to access it. e.g., `littlebitbybit.org`
 - All other strings are opened in Google search.
 
 ## Knight AppleScript Collection

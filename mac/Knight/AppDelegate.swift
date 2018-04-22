@@ -41,7 +41,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func setupStatusBarIcon() {
         if let button = statusItem.button {
-            button.image = NSImage(named:NSImage.Name("StatusBarButtonImage"))
+            button.image = NSImage(named:NSImage.Name("knightStatusBarIcon"))
         }
     }
     
