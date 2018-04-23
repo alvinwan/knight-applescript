@@ -17,6 +17,14 @@ class ViewController: NSViewController {
     let viewWidth: CGFloat = 800
     let viewHeight: CGFloat = 70
     
+    let handlers: [KnightHandler] = [
+        SendMessageHandler(),
+        AppleScriptHandler(),
+        AddCalendarEventHandler(),
+        CalendarAvailabilities(),
+        BrowserHandler()
+    ]
+    
     override func viewDidLoad() {
         self.view.setFrameSize(NSMakeSize(viewWidth, viewHeight))
     }
@@ -24,14 +32,6 @@ class ViewController: NSViewController {
     @IBAction func textFieldEnter(sender: NSTextField) {
         let string = sender.stringValue
         hideWindowStatus()
-        
-        let handlers: [KnightHandler] = [
-            SendMessageHandler(),
-            AppleScriptHandler(),
-            AddCalendarEventHandler(),
-            CalendarAvailabilities(),
-            BrowserHandler()
-        ]
         
         var isError: Bool, error: String
         for handler in handlers {
@@ -55,7 +55,7 @@ class ViewController: NSViewController {
     
     func showWindowStatus(numLines: CGFloat) {
         var frame = self.view.window?.frame
-        frame?.size = NSSize(width: viewWidth, height: viewHeight + 10 + numLines * 20)
+        frame?.size = NSSize(width: viewWidth, height: viewHeight + 20 + numLines * 23)
         self.view.window?.setFrame(frame!, display: true, animate: true)
     }
     
@@ -74,7 +74,7 @@ class ViewController: NSViewController {
 protocol KnightHandlerInvocation {
     
     func recognize(string: String) -> Bool
-    func parse(string: String) -> [String: Any]
+    func parse(string: String) -> [String: Any?]
 }
 
 class DefaultHandlerInvocation: KnightHandlerInvocation {
@@ -86,10 +86,10 @@ class DefaultHandlerInvocation: KnightHandlerInvocation {
     }
     
     func recognize(string: String) -> Bool {
-        return string.starts(with: "\(self.prefix):")
+        return string.lowercased().starts(with: "\(self.prefix!):")
     }
     
-    func parse(string: String) -> [String: Any] {
+    func parse(string: String) -> [String: Any?] {
         return ["content": string.split(separator: ":", maxSplits: 1).map(String.init)[1]]
     }
 }
@@ -149,7 +149,8 @@ class AppleScriptHandler: KnightHandler {
                 &error) {
                 return (false, output.stringValue ?? "")
             } else if (error != nil) {
-                return (true, "error: \(String(describing: error))")
+                let errorBriefMessage = error!["NSAppleScriptErrorBriefMessage"] ?? "(No error description)"
+                return (true, "error: \(errorBriefMessage)")
             }
         }
         return (true, "error: could not access applescript")
@@ -200,7 +201,7 @@ class BrowserHandler: KnightHandler {
             return true
         }
         
-        func parse(string: String) -> [String : Any] {
+        func parse(string: String) -> [String : Any?] {
             return [:]
         }
     }
@@ -212,32 +213,46 @@ class BrowserHandler: KnightHandler {
  * ---------------
  * Messages the specified recipient, delimited by a colon
  *
- *      say <message> to <name>
+ *      say <message> [to <name>]
  *      say hello there to alvin
  *
- *      message <name>: <message>
- *      message alvin: hello there
+ *      message [<name>] <message>
+ *      message alvin hello there
  *
- *      <name>::<message>
- *      alvin::hello there
- *
+ *      tell [<name>] <message>
+ *      tell alvin hello there
  *
  * Searches for all recipients whose name start with the provided string. This means that the user can
  * message recipients by mentioning just a first name. This additionally performs a lookup for the
- * user's phone number, so that iMessage is forcibly used.
+ * user's phone number, so that iMessage is forcibly used. The last recipient is used if a name cannot
+ * be found.
  */
 class SendMessageHandler: KnightHandler {
+    
+    var lastRecipient: String?
     
     override init() {
         super.init()
         invocations.append(MessageInvocation())
-        invocations.append(DoubleColonInvocation())
+        invocations.append(TellInvocation())
         invocations.append(SayToInvocation())
     }
     
     override func handle(string: String) -> (Bool, String) {
+        var recipient: String
         let information = invocation!.parse(string: string)
-        let recipient = (information["recipient"]! as! String).trim()
+        let lacksRecipient = information["recipient"]! == nil
+        
+        if lacksRecipient && lastRecipient == nil {
+            return (true, "No recipient specified")
+        }
+        
+        if !lacksRecipient {
+            recipient = information["recipient"] as! String
+        } else {
+            recipient = lastRecipient!
+        }
+        recipient = recipient.trim()
         let message = information["message"]!
         
         let appleScript = """
@@ -253,53 +268,83 @@ class SendMessageHandler: KnightHandler {
         tell application "Messages"
         set targetService to 1st service whose service type = iMessage
         set targetBuddy to buddy buddyPhone of targetService
-        send \"\(message)\" to targetBuddy
+        send \"\(message!)\" to targetBuddy
         end tell
         
         -- return to original app
         activate application originalApp
         """
-        return AppleScriptHandler.runAppleScript(appleScript: appleScript)
+        
+        let (isError, out) = AppleScriptHandler.runAppleScript(appleScript: appleScript)
+        if !isError {
+            lastRecipient = recipient
+        }
+        
+        return (isError, out)
     }
     
-    class MessageInvocation: KnightHandlerInvocation {
+    class TellInvocation: KnightHandlerInvocation {
         
         func recognize(string: String) -> Bool {
-            return string.starts(with: "message")
+            return string.lowercased().starts(with: "tell ")
         }
         
-        func parse(string: String) -> [String: Any] {
-            let array = string.split(separator:":", maxSplits: 1).map(String.init)
-            let prefixArray = array[0].split(separator: " ", maxSplits: 1).map(String.init)
-            let recipient = prefixArray[1]
-            let message = array[1]
-            return ["recipient": recipient, "message": message]
+        func parse(string: String) -> [String: Any?] {
+            var isError: Bool
+            var fullName: String
+            let array = string.split(separator: " ", maxSplits: 3).map(String.init)
+            
+            for i in stride(from: 3, to: 0, by: -1) {
+                let candidateFullName = array[1..<(i+1)].joined(separator: " ")
+                (isError, fullName) = checkValidName(candidateName: candidateFullName)
+                if !isError {
+                    return ["recipient": fullName, "message": array[(i+1)...].joined(separator: " ")]
+                }
+            }
+            
+            return ["recipient": nil, "message": ""]
+        }
+        
+        func checkValidName(candidateName: String) -> (Bool, String) {
+            return AppleScriptHandler.runAppleScript(appleScript: """
+                tell application "Contacts"
+                    set contact to person 1 whose name starts with "\(candidateName)"
+                    set firstName to first name of contact
+                    set lastName to last name of contact
+                    return firstName & " " & lastName
+                end tell
+                """)
         }
     }
     
-    class DoubleColonInvocation: KnightHandlerInvocation {
+    class MessageInvocation: TellInvocation {
         
-        func recognize(string: String) -> Bool {
-            return string.contains("::")
-        }
-        
-        func parse(string: String) -> [String: Any] {
-            let array = string.components(separatedBy: "::")
-            return ["recipient": array[0], "message": array[1]]
+        override func recognize(string: String) -> Bool {
+            return string.lowercased().starts(with: "message ")
         }
     }
     
     class SayToInvocation: KnightHandlerInvocation {
         
         func recognize(string: String) -> Bool {
-            return string.starts(with: "say ") && string.contains(word: "to")
+            return string.lowercased().starts(with: "say ")
         }
         
-        func parse(string: String) -> [String: Any] {
-            var array = string.components(separatedBy: "say ")
-            let range = array[1].range(of: " to ", options: .backwards)!
-            let recipient = String(array[1][range.upperBound...])
-            let message = String(array[1][..<range.lowerBound])
+        func parse(string: String) -> [String: Any?] {
+            var recipient: String?
+            var message: String?
+            
+            var array = string.split(separator: " ", maxSplits: 1).map(String.init)
+            let content = array[1]
+            
+            if content.contains(word: "to") {
+                let range = content.range(of: " to ", options: .backwards)!
+                recipient = String(content[range.upperBound...])
+                message = String(content[..<range.lowerBound])
+            } else {
+                recipient = nil
+                message = content
+            }
             return ["recipient": recipient, "message": message]
         }
     }
@@ -373,7 +418,7 @@ class AddCalendarEventHandler: KnightHandler {
             // handle quoted strings - does not handle escaped quotes
             if word.hasPrefix("\"") || word.hasSuffix("\"") {
                 quoteOn = !quoteOn
-                word = word.hasPrefix("\"") ? String(word[1...]) : String(word[..<1])
+                word = word.hasPrefix("\"") ? String(word[1...]) : String(word.dropLast())
             }
             
             if quoteOn {
@@ -457,7 +502,7 @@ class AddCalendarEventHandler: KnightHandler {
             return string.lowercased().starts(with: "add event ") && string.contains(word: "on")
         }
         
-        func parse(string: String) -> [String: Any] {
+        func parse(string: String) -> [String: Any?] {
             let array = string.split(separator:" ", maxSplits: 2).map(String.init)
             return AddCalendarEventHandler.parseHumanReadableEvent(string: array[2])
         }
