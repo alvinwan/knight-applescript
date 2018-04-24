@@ -13,7 +13,7 @@ Knight is a Spotlight-esque application that makes common computer tasks accessi
 - Type in any URL to access it. e.g., `littlebitbybit.org`
 - All other strings are opened in Google search.
 
-To install on Mac OSX (10.13.*),
+To install on Mac OSX (10.10+ required, tested on 10.13.2),
 
 1. Download the Knight application [`Knight_macosx.dmg`](http://github.com/alvinwan/knight/tree/master/Knight_macosx.dmg).
 2. Double-click on the `.dmg` file.
