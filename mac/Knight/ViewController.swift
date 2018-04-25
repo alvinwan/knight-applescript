@@ -145,13 +145,13 @@ class AppleScriptHandler: KnightHandler {
     static func runAppleScript(appleScript: String) -> (Bool, String) {
         var error: NSDictionary?
         if let scriptObject = NSAppleScript(source: appleScript) {
-            if let output: NSAppleEventDescriptor = scriptObject.executeAndReturnError(
-                &error) {
-                return (false, output.stringValue ?? "")
-            } else if (error != nil) {
+            let output: NSAppleEventDescriptor = scriptObject.executeAndReturnError(
+                &error)
+            if (error != nil) {
                 let errorBriefMessage = error!["NSAppleScriptErrorBriefMessage"] ?? "(No error description)"
                 return (true, "error: \(errorBriefMessage)")
             }
+            return (false, output.stringValue ?? "")
         }
         return (true, "error: could not access applescript")
     }
@@ -244,7 +244,7 @@ class SendMessageHandler: KnightHandler {
         let lacksRecipient = information["recipient"]! == nil
         
         if lacksRecipient && lastRecipient == nil {
-            return (true, "No recipient specified")
+            return (true, "No valid recipient specified")
         }
         
         if !lacksRecipient {
@@ -295,6 +295,9 @@ class SendMessageHandler: KnightHandler {
             let array = string.split(separator: " ", maxSplits: 3).map(String.init)
             
             for i in stride(from: 3, to: 0, by: -1) {
+                if array.count < i+1 {
+                    continue
+                }
                 let candidateFullName = array[1..<(i+1)].joined(separator: " ")
                 (isError, fullName) = checkValidName(candidateName: candidateFullName)
                 if !isError {
@@ -356,12 +359,14 @@ class SendMessageHandler: KnightHandler {
  * ------------------
  * adds specified event to calendar
  *
- *      add event <event name> [on <start date>] [at <location>] [for <duration in hours>]
- *      add event Meeting (Bit by Bit) at MLK on 4/20 3 PM
- *      add event "Walla for Walla" for 0.5 on tomorrow 9:00 a.m.
+ *      add event <event name> [(on|today|tomorrow) <date/time>] [at <location>] [for <duration in hours>]
+ *      add event Meeting (Bit by Bit) at MLK on 4/24 3 PM
+ *      add event "Walla for Walla" tomorrow 9-9:30 a.m.
+ *      add event Wonka Billy today 9:45 to 11 p.m.
+ *      add event [Taekwondo] Practice on 4/30 9:30 a.m. for 0.5 hours
  *
  * If your event name contains key words such as "on" or "at," enclose your event name in double
- * quotes.
+ * quotes. The time or duration *must come after the date, whether it be "4/25" or "today".
  */
 class AddCalendarEventHandler: KnightHandler {
     
@@ -375,10 +380,17 @@ class AddCalendarEventHandler: KnightHandler {
     override func safeHandle(string: String) -> (Bool, String)  {
         let information = invocation!.parse(string: string)
         
-        let startDate = information["startDate"]!
-        let durationHours = information["durationHours"]!
-        let location = information["location"]!
-        let eventName = information["eventName"]!
+        let location = information["location"]!!
+        let eventName = information["eventName"]!!
+        var startDate: String = information["startDate"]!! as! String
+        var durationHours = information["durationHours"]!!
+        
+        var proposedDurationHours: Float?
+        (proposedDurationHours, startDate) = AddCalendarEventHandler.parseStartDateForDuration(startDateString: startDate)
+        
+        if proposedDurationHours != nil {
+            durationHours = proposedDurationHours! as Any
+        }
         
         let appleScript = """
         -- save path to original app
@@ -403,7 +415,7 @@ class AddCalendarEventHandler: KnightHandler {
         
         var facets: [String: [String]] = [:]
         let keywords = [
-            "startDate": ["on"],
+            "startDate": ["on", "today", "tomorrow", "tmw"],
             "location": ["at"],
             "durationHours": ["for"]
         ]
@@ -411,9 +423,10 @@ class AddCalendarEventHandler: KnightHandler {
         var facetKey = "eventName"
         var quoteOn = false
         var word: String
+        facets[facetKey] = []
+        
         wordLoop: for word_ in string.components(separatedBy: " ") {
             word = word_
-            facets[facetKey] = (facets[facetKey] ?? [])
             
             // handle quoted strings - does not handle escaped quotes
             if word.hasPrefix("\"") || word.hasSuffix("\"") {
@@ -427,15 +440,20 @@ class AddCalendarEventHandler: KnightHandler {
             }
             
             // identify event property
-            for (key, triggers) in keywords {
-                for trigger in triggers {
-                    if word == trigger {
-                        facetKey = key
-                        continue wordLoop
+            if ["today", "tomorrow", "tmw"].contains(word) {
+                facetKey = "startDate"
+            } else {
+                for (key, triggers) in keywords {
+                    for trigger in triggers {
+                        if word == trigger {
+                            facetKey = key
+                            continue wordLoop
+                        }
                     }
                 }
             }
             
+            facets[facetKey] = (facets[facetKey] ?? [])
             facets[facetKey]!.append(word)
         }
         
@@ -444,7 +462,6 @@ class AddCalendarEventHandler: KnightHandler {
         let location = facets["location"]?.joined(separator: " ")
         
         var durationHours: Float = 1
-        print(facets)
         if (facets["durationHours"] != nil) {
             durationHours = Float(facets["durationHours"]![0])!
         }
@@ -455,6 +472,76 @@ class AddCalendarEventHandler: KnightHandler {
             "location": location ?? "",
             "durationHours": durationHours
         ]
+    }
+    
+    static func parseStartDateForDuration(startDateString: String) -> (Float?, String) {
+        var durationHours: Float?
+        var startDate = startDateString.split(separator: " ").map(String.init)
+            
+        var i: Int = 0
+        if let indexOfTo = startDate.index(of: "to") {
+            i = indexOfTo
+        }
+        if let indexOfDash = startDate.index(of: "-") {
+            i = indexOfDash
+        }
+        if i > 0 && i < startDate.count - 1 {
+            durationHours = computeTimeDifference(start: startDate[i-1], end: startDate[i+1]) ?? 1
+            startDate.remove(at: i+1)
+            startDate.remove(at: i)
+        }
+        for (i, word) in startDate.enumerated() {
+            if word.count(string: "-") == 1 {
+                
+                if word.starts(with: "-") && i > 0 {
+                    let subWord = String(word.dropFirst())
+                    durationHours = computeTimeDifference(start: startDate[i-1], end: subWord) ?? 1
+                    startDate.remove(at: i)
+                } else if word.last == "-" && i < startDate.count - 1 {
+                    let subWord = String(word.dropLast())
+                    durationHours = computeTimeDifference(start: subWord, end: startDate[i+1]) ?? 1
+                    
+                    startDate[i] = properTimeFormat(string: subWord)
+                    startDate.remove(at: i+1)
+                } else {
+                    let array = word.split(separator: "-").map(String.init)
+                    durationHours = computeTimeDifference(start: array[0], end: array[1]) ?? 1
+                    startDate[i] = properTimeFormat(string: array[0])
+                }
+            }
+        }
+        return (durationHours, startDate.joined(separator: " "))
+    }
+    
+    static func properTimeFormat(string: String) -> String {
+        if !string.contains(":") {
+            return "\(string):00"
+        }
+        return string
+    }
+    
+    static func computeTimeDifference(start: String, end: String) -> Float? {
+        if let startNum = Int(start), let endNum = Int(end) {
+            return Float(endNum - startNum)
+        }
+        if let startNum = stringTimetoFloat(string: start),
+            let endNum = stringTimetoFloat(string: end) {
+            return endNum - startNum
+        }
+        return nil
+    }
+    
+    static func stringTimetoFloat(string: String) -> Float? {
+        if string.contains(":") {
+            var segments: [String] = string.split(separator: ":").map(String.init)
+            if segments.count != 2 || Float(segments[0]) == nil || Float(segments.last!) == nil {
+                return nil
+            }
+            return Float(segments[0])! + (Float(segments.last!)! / 60)
+        } else if let int = Int(string) {
+            return Float(int)
+        }
+        return nil
     }
     
     /**
@@ -479,7 +566,7 @@ class AddCalendarEventHandler: KnightHandler {
         for word in words {
             if word.lowercased().trim() == "today" {
                 cleanedWords.append(dateFormatter.string(from: dateToday))
-            } else if word.lowercased().trim() == "tomorrow" {
+            } else if ["tomorrow", "tmw"].contains(word.lowercased().trim()) {
                 let dateTomorrow = Calendar.current.date(byAdding: .day, value: 1, to: dateToday)
                 cleanedWords.append(dateFormatter.string(from: dateTomorrow!))
             } else if let num = Int(word) {
@@ -499,7 +586,7 @@ class AddCalendarEventHandler: KnightHandler {
     class AddEventInvocation: KnightHandlerInvocation {
         
         func recognize(string: String) -> Bool {
-            return string.lowercased().starts(with: "add event ") && string.contains(word: "on")
+            return string.lowercased().starts(with: "add event ")
         }
         
         func parse(string: String) -> [String: Any?] {
